@@ -1,0 +1,49 @@
+volumes:
+  pg_volume:
+  redis_data:
+
+
+services:
+  pg:
+    image: postgres:15-alpine3.17
+    env_file:
+      - .env
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pg_volume:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: always
+    command: ["redis-server", "--appendonly", "yes", "--loglevel", "verbose", "--requirepass", "${REDIS_PASSWORD}"]
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build: .
+    env_file:
+      - .env
+    environment:
+      HTTP_PORT: ${HTTP_PORT}
+      HTTP_HOST: ${HTTP_HOST}
+    ports:
+        - "${HTTP_PORT:-8080}:${HTTP_PORT:-8080}"
+    depends_on:
+      - redis
+      - pg
+
+  celery-worker:
+    build: .
+    command: celery -A app.core.celery_app.app worker -l info
+    depends_on:
+      - redis
+
+  celery-beat:
+    build: .
+    command: celery -A app.core.celery_app.app beat -l info
+    depends_on:
+      - redis
