@@ -4,9 +4,18 @@ from typing import Type
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.core.exceptions import AppError, UserNotFoundError, ProductNotFoundError, ProductInactiveError, \
-    InventoryAlreadyExistsError, InsufficientBalanceError, PermanentProductQuantityError, PermanentProductUseError, \
-    InsufficientProductQuantityError
+from app.core.exceptions import (
+    AppError,
+    UserNotFoundError,
+    ProductNotFoundError,
+    ProductInactiveError,
+    InventoryAlreadyExistsError,
+    InsufficientBalanceError,
+    PermanentProductQuantityError,
+    PermanentProductUseError,
+    InsufficientProductQuantityError,
+    IdempotencyKeyConflictError,
+)
 
 APP_ERROR_STATUS_MAP: dict[Type[AppError], HTTPStatus] = {
     UserNotFoundError: HTTPStatus.NOT_FOUND,
@@ -17,6 +26,7 @@ APP_ERROR_STATUS_MAP: dict[Type[AppError], HTTPStatus] = {
     PermanentProductQuantityError: HTTPStatus.BAD_REQUEST,
     PermanentProductUseError: HTTPStatus.BAD_REQUEST,
     InsufficientProductQuantityError: HTTPStatus.CONFLICT,
+    IdempotencyKeyConflictError: HTTPStatus.CONFLICT,
 }
 
 

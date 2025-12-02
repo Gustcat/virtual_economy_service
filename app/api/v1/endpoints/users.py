@@ -1,5 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks
 
+from app.api.deps import IdempotencyKeyDep
+from app.cache.balance_cache import get_balance_cache, set_balance_cache
 from app.cache.inventory_cache import get_inventory_cache, set_inventory_cache
 from app.db.session import SessionDep
 from app.schemas.inventory import InventorySchema
@@ -11,10 +13,24 @@ user_router = APIRouter()
 
 
 @user_router.post("/{user_id}/add-funds/", response_model=AddFundsResponse)
-async def add_funds(user_id: int, funds: AddFundsRequest, session: SessionDep):
+async def add_funds(
+    user_id: int,
+    funds: AddFundsRequest,
+    session: SessionDep,
+    bg_tasks: BackgroundTasks,
+    idempotency_key: IdempotencyKeyDep,
+):
+    balance_cache = await get_balance_cache(idempotency_key, funds)
+    if balance_cache:
+        return balance_cache
+
     user_service = UserService(session)
     new_balance = await user_service.add_funds(user_id, funds.amount)
-    return AddFundsResponse(balance=new_balance)
+
+    response = AddFundsResponse(balance=new_balance)
+    bg_tasks.add_task(set_balance_cache, idempotency_key, funds, response)
+
+    return response
 
 
 @user_router.get("/{user_id}/inventory/", response_model=list[InventorySchema])

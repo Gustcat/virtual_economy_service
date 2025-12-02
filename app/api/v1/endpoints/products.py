@@ -1,6 +1,8 @@
 from fastapi import APIRouter, BackgroundTasks
 
+from app.api.deps import IdempotencyKeyDep
 from app.cache.inventory_cache import invalidate_inventory_cache
+from app.cache.purchase_cache import get_purchase_cache, set_purchase_cache
 from app.db.session import SessionDep
 from app.schemas.inventory import UseProductResponse, UseProductRequest
 from app.schemas.purchase import PurchaseResponse, PurchaseRequest
@@ -16,7 +18,12 @@ async def purchase_product(
     purchase_details: PurchaseRequest,
     session: SessionDep,
     bg_tasks: BackgroundTasks,
+    idempotency_key: IdempotencyKeyDep,
 ):
+    purchase_cache = await get_purchase_cache(idempotency_key, purchase_details)
+    if purchase_cache:
+        return purchase_cache
+
     user_id = purchase_details.user_id
     purchase_service = PurchaseService(session)
     transaction, balance, inventory = await purchase_service.purchase_product(
@@ -25,9 +32,13 @@ async def purchase_product(
 
     bg_tasks.add_task(invalidate_inventory_cache, user_id)
 
-    return PurchaseResponse(
+    response = PurchaseResponse(
         transaction=transaction, balance=balance, inventory_item=inventory
     )
+
+    bg_tasks.add_task(set_purchase_cache, idempotency_key, purchase_details, response)
+
+    return response
 
 
 @product_router.post("/{product_id}/use/", response_model=UseProductResponse)

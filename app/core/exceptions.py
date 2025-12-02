@@ -39,4 +39,11 @@ class PermanentProductUseError(AppError):
 
 class InsufficientProductQuantityError(AppError):
     def __init__(self, available_q, requested_q: int):
-        super().__init__(f"Insufficient product quantity: available {available_q}, requested {requested_q}")
+        super().__init__(
+            f"Insufficient product quantity: available {available_q}, requested {requested_q}"
+        )
+
+
+class IdempotencyKeyConflictError(AppError):
+    def __init__(self):
+        super().__init__("Idempotency key already used with different data")
